@@ -1,0 +1,14 @@
+streamlit
+pandas
+pyarrow
+reportlab
+mysql-connector-python
+python-dotenv
+pillow
+duckdb
+datetime
+sqlalchemy
+bcrypt
+pytest>=8.4,<9.0
+fernet
+email-validator
