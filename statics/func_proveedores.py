@@ -21,7 +21,7 @@ def proveedores(pool):
         if 'cursor' in locals() and cursor: cursor.close()
         if 'conn' in locals() and conn: conn.close()
 def añadir_proveedor(pool, nombre, direccion, email):
-    if pool is None: return False
+    if pool is None: return False, "No hay conexión con la base de datos."
 
     query = """
         INSERT INTO Proveedor (Nombre, Direccion, Correo_Electronico)
@@ -34,14 +34,14 @@ def añadir_proveedor(pool, nombre, direccion, email):
         cursor = conn.cursor()
         cursor.execute(query, data)
         conn.commit()
-        return True
+        return True, f"¡Proveedor '{nombre}' registrado con éxito!"
     except Exception as e:
+        if 'conn' in locals() and conn:
+            conn.rollback()
         if "Duplicate entry" in str(e):
-            st.error(f"Error: Ya existe un proveedor con el correo electrónico '{email}'.")
+            return False, f"Error: Ya existe un proveedor con el correo electrónico '{email}'."
         else:
-            st.error(f"Error al añadir el proveedor: {e}")
-        conn.rollback()
-        return False
+            return False, f"Error al añadir el proveedor: {e}"
     finally:
         if 'cursor' in locals() and cursor: cursor.close()
         if 'conn' in locals() and conn: conn.close()

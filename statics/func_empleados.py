@@ -62,17 +62,16 @@ def empleados(pool):
 
 def añadir_empleado(pool, nombre, apellido, cargo):
     if pool is None:
-        return False
+        return False, "No hay conexión con la base de datos."
 
     if not nombre or not apellido:
-        st.error("Los campos Nombre y Apellido son obligatorios.")
-        return False
+        return False, "Los campos Nombre y Apellido son obligatorios."
 
     id_cargo = _obtener_o_crear_cargo(pool, cargo)
     if id_cargo is None and cargo:
-        return False
+        return False, "Error al asignar o crear el cargo."
 
-    query = "INSERT INTO Empleado (Nombre, Apellido, id_cargo) VALUES (%s, %s, %s)"
+    query = "INSERT INTO Empleado (Nombre, Apellido, id_cargo, password) VALUES (%s, %s, %s, '')"
     data = (nombre, apellido, id_cargo)
 
     try:
@@ -80,12 +79,11 @@ def añadir_empleado(pool, nombre, apellido, cargo):
         cursor = conn.cursor()
         cursor.execute(query, data)
         conn.commit()
-        return True
+        return True, f"¡Empleado '{nombre} {apellido}' registrado con éxito!"
     except Exception as e:
-        st.error(f"Error al añadir el empleado: {e}")
         if 'conn' in locals() and conn:
             conn.rollback()
-        return False
+        return False, f"Error al añadir el empleado: {e}"
     finally:
         if 'cursor' in locals() and cursor:
             cursor.close()
