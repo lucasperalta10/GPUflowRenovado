@@ -2,7 +2,10 @@ import streamlit as st
 from pages.login import mostrar_login
 
 
-st.set_page_config(page_title="GPUflow", layout="wide", page_icon="🔐")
+st.set_page_config(
+    page_title="GPUflow",
+    layout="wide",
+    page_icon="🔐")
 
 
 if 'logged_in' not in st.session_state:

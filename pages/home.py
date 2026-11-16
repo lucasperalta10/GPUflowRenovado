@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
-from conexion import get_connection_pool
-import statics.func_productos as db_func_prod
+from repositories.producto_repository import ProductoRepository
 
 st.set_page_config(
     page_title="Almacén de GPUs",
@@ -9,13 +8,13 @@ st.set_page_config(
     layout="wide"
 )
 
-pool = db_func_prod.get_connection_pool()
+producto_repo = ProductoRepository()
 
-if pool:
-    df_productos = db_func_prod.obtener_productos(pool)
-    df_stock_bajo = db_func_prod.obtener_stock_bajo(pool, umbral=10)
+if producto_repo.pool:
+    df_productos = producto_repo.obtener_todos_df()
+    df_stock_bajo = producto_repo.obtener_stock_bajo_df(umbral=10)
 else:
-    st.error("No se pudo conectar a la base de datos. Revise db_funciones.py")
+    st.error("No se pudo conectar a la base de datos.")
     df_productos = pd.DataFrame()
     df_stock_bajo = pd.DataFrame()
 
@@ -24,9 +23,9 @@ st.badge("Versión BETA 5", color="yellow", icon="⚠️")
 st.markdown("Vista general del stock de productos.")
 
 if not df_productos.empty:
-    total_stock = int(df_productos['Stock'].sum())
-    modelos_unicos = df_productos['Modelo'].nunique()
-    valor_inventario = (df_productos['Precio'] * df_productos['Stock']).sum()
+    total_stock = int(df_productos["Stock"].sum())
+    modelos_unicos = df_productos["Modelo"].nunique()
+    valor_inventario = (df_productos["Precio"] * df_productos["Stock"]).sum()
 else:
     total_stock = 0
     modelos_unicos = 0
@@ -57,7 +56,7 @@ else:
 
 if not df_productos.empty:
     st.subheader("Stock por Marca")
-    stock_por_marca = df_productos.groupby('Marca')['Stock'].sum()
+    stock_por_marca = df_productos.groupby("Marca")["Stock"].sum()
     if not stock_por_marca.empty:
         st.bar_chart(stock_por_marca)
     else:

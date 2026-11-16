@@ -1,25 +1,25 @@
 import streamlit as st
-from conexion import get_connection_pool
-import statics.func_empleados as db
 import pandas as pd
+from models.empleado import Empleado
+from repositories.empleado_repository import EmpleadoRepository
 
 st.set_page_config(
     page_title="Gestión de Empleados",
     page_icon="👤",
-    layout="wide" 
+    layout="wide"
 )
 
-pool = db.get_connection_pool()
-if not pool:
-    st.error("Error de conexión a la base de datos. Revise db_funciones.py")
+empleado_repo = EmpleadoRepository()
+if not empleado_repo.pool:
+    st.error("Error de conexión a la base de datos.")
     st.stop()
 
 st.title("👤 Gestión de Empleados")
 st.badge("Versión BETA 5", color="yellow", icon="⚠️")
 
 try:
-    df_empleados = db.empleados(pool)
-except Exception as e:
+    df_empleados = empleado_repo.obtener_todos_df()
+except Exception:
     st.error("No se pudieron cargar los empleados.")
     df_empleados = pd.DataFrame(columns=["ID", "Nombre", "Apellido", "Cargo"])
 
@@ -39,18 +39,18 @@ else:
 
 # DEFINICIÓN DE PESTAÑAS
 tab1, tab2, tab3 = st.tabs([
-    "Ver Empleados", 
-    "➕ Añadir Empleado", 
+    "Ver Empleados",
+    "➕ Añadir Empleado",
     "✍️ Editar Empleado"
 ])
 
 # PESTAÑA 1: Ver Empleados
 with tab1:
     st.subheader("Lista de Empleados Registrados")
-    
+
     if st.button("Refrescar Datos"):
-        st.rerun() 
-    
+        st.rerun()
+
     if df_empleados.empty:
         st.info("No hay empleados registrados en la base de datos.")
     else:
@@ -66,31 +66,29 @@ with tab2:
             nombre_emp = st.text_input("Nombre*", key="new_nombre")
         with col2:
             apellido_emp = st.text_input("Apellido*", key="new_apellido")
-        
+
         cargo_emp = st.selectbox(
             "Cargo",
             options=CARGO_OPTIONS,
             key="new_cargo"
         )
-        
+
         st.markdown("*Campos obligatorios")
         st.markdown("---")
-        
+
         submitted = st.form_submit_button("Guardar Empleado")
 
     if submitted:
-        if not nombre_emp or not apellido_emp:
+        nuevo_empleado = Empleado(
+            nombre=nombre_emp,
+            apellido=apellido_emp,
+            cargo=cargo_emp,
+        )
+        if not nuevo_empleado.tiene_datos_validos():
             st.warning("Por favor, complete los campos Nombre y Apellido.")
         else:
-            cargo_para_db = cargo_emp if cargo_emp != "(Ninguno)" else None
-            
-            success, message = db.añadir_empleado(
-                pool,
-                nombre_emp, 
-                apellido_emp, 
-                cargo_para_db
-            )
-            
+            success, message = empleado_repo.crear(nuevo_empleado)
+
             if success:
                 st.success(message)
             else:
@@ -99,7 +97,7 @@ with tab2:
 # PESTAÑA 3: Editar Empleado
 with tab3:
     st.subheader("Modificar un Empleado Existente")
-    
+
     selected_employee_str = st.selectbox(
         "Empleado a Editar:",
         options=employee_list,
@@ -107,45 +105,43 @@ with tab3:
         placeholder="Seleccione un empleado...",
         key="edit_select"
     )
-    
-    if selected_employee_str:
+
+    if selected_employee_str and selected_employee_str in employee_dict:
         empleado_actual = employee_dict[selected_employee_str]
-        id_empleado = empleado_actual['ID']
-        
-        cargo_actual = empleado_actual['Cargo'] if empleado_actual['Cargo'] else "(Ninguno)"
+        id_empleado = empleado_actual["ID"]
+
+        cargo_actual = empleado_actual["Cargo"] if empleado_actual["Cargo"] else "(Ninguno)"
         try:
             indice_cargo = CARGO_OPTIONS.index(cargo_actual)
         except ValueError:
-            indice_cargo = 0 
+            indice_cargo = 0
 
         with st.form("edit_employee_form"):
             st.markdown(f"**Editando ID: {id_empleado}**")
-            
-            nombre_edit = st.text_input("Nombre*", value=empleado_actual['Nombre'])
-            apellido_edit = st.text_input("Apellido*", value=empleado_actual['Apellido'])
+
+            nombre_edit = st.text_input("Nombre*", value=empleado_actual["Nombre"])
+            apellido_edit = st.text_input("Apellido*", value=empleado_actual["Apellido"])
             cargo_edit = st.selectbox(
                 "Cargo",
                 options=CARGO_OPTIONS,
                 index=indice_cargo,
                 key="edit_cargo"
             )
-            
+
             st.markdown("---")
             submitted_edit = st.form_submit_button("Guardar Cambios")
-            
+
             if submitted_edit:
-                if not nombre_edit or not apellido_edit:
+                empleado_editado = Empleado(
+                    id_empleado=id_empleado,
+                    nombre=nombre_edit,
+                    apellido=apellido_edit,
+                    cargo=cargo_edit,
+                )
+                if not empleado_editado.tiene_datos_validos():
                     st.warning("Los campos Nombre y Apellido son obligatorios.")
                 else:
-                    cargo_para_db_edit = cargo_edit if cargo_edit != "(Ninguno)" else None
-                    
-                    success, message = db.actualizar_empleado(
-                        pool,
-                        id_empleado,
-                        nombre_edit,
-                        apellido_edit,
-                        cargo_para_db_edit
-                    )
+                    success, message = empleado_repo.actualizar(empleado_editado)
                     if success:
                         st.success(message)
                     else:
