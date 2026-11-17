@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
-from models.venta import ItemVenta, Venta
-from repositories.empleado_repository import EmpleadoRepository
-from repositories.producto_repository import ProductoRepository
-from repositories.venta_repository import VentaRepository
+from src.models.venta import ItemVenta, Venta
+from src.services.inventario_service import EmpleadoService, ProductoService, VentaService
 
 st.set_page_config(
     page_title="Módulo de Ventas",
@@ -11,13 +9,9 @@ st.set_page_config(
     layout="wide"
 )
 
-empleado_repo = EmpleadoRepository()
-producto_repo = ProductoRepository()
-venta_repo = VentaRepository()
-
-if not venta_repo.pool:
-    st.error("Error de conexión a la base de datos.")
-    st.stop()
+empleado_service = EmpleadoService()
+producto_service = ProductoService()
+venta_service = VentaService()
 
 st.title("💸 Módulo de Ventas")
 st.badge("Versión BETA 5", color="yellow", icon="⚠️")
@@ -29,8 +23,12 @@ with tab1:
     if "cart" not in st.session_state:
         st.session_state.cart = []
 
-    df_empleados = empleado_repo.obtener_todos_df()
-    df_productos = producto_repo.obtener_disponibles_df()
+    try:
+        df_empleados = empleado_service.listar()
+        df_productos = producto_service.listar_disponibles()
+    except Exception as exc:
+        st.error(f"Error de conexión a la base de datos: {exc}")
+        st.stop()
 
     if df_empleados.empty:
         st.error("No hay empleados registrados. Añada empleados primero.")
@@ -58,7 +56,7 @@ with tab1:
         options=list(employee_dict.keys()),
         key="empleado_selector"
     )
-    id_empleado_seleccionado = employee_dict[empleado_nombre]
+    id_empleado_seleccionado = int(employee_dict[empleado_nombre])
 
     st.markdown("---")
 
@@ -87,13 +85,13 @@ with tab1:
         submitted = st.form_submit_button("Añadir al Carrito")
 
     if submitted and producto_modelo:
-        id_producto_seleccionado = product_dict[producto_modelo]
+        id_producto_seleccionado = int(product_dict[producto_modelo])
         detalles = product_details[id_producto_seleccionado]
         item_venta = ItemVenta(
             id_producto=id_producto_seleccionado,
             nombre=producto_modelo,
-            marca=detalles["Marca"],
-            modelo=detalles["Modelo"],
+            marca=detalles["Marca"] or "",
+            modelo=detalles["Modelo"] or "",
             cantidad=cantidad,
             precio_unitario=float(detalles["Precio"]),
         )
@@ -124,7 +122,9 @@ with tab1:
 
         if st.button("🚨 Procesar Venta y Facturar 🚨", type="primary"):
             with st.spinner("Procesando transacción..."):
-                success, message = venta_repo.registrar_venta(venta_actual)
+                success, message = venta_service.procesar_venta(
+                    id_empleado_seleccionado, st.session_state.cart
+                )
             if success:
                 st.success(message)
                 st.balloons()
@@ -140,7 +140,7 @@ with tab2:
     if st.button("Refrescar Historial"):
         st.rerun()
 
-    df_sales_summary = venta_repo.obtener_resumen_df()
+    df_sales_summary = venta_service.resumen_ventas()
 
     if df_sales_summary.empty:
         st.info("Aún no se han registrado ventas.")
@@ -175,8 +175,8 @@ with tab2:
         )
 
         if selected_sale_str:
-            id_compra_seleccionada = sales_dict[selected_sale_str]
-            df_details = venta_repo.obtener_detalles_df(id_compra_seleccionada)
+            id_compra_seleccionada = int(sales_dict[selected_sale_str])
+            df_details = venta_service.detalles_venta(id_compra_seleccionada)
 
             if df_details.empty:
                 st.warning("No se encontraron detalles para esta venta.")

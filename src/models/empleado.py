@@ -1,5 +1,5 @@
 from typing import Optional
-from models.base import Persona
+from src.models.base import Persona
 
 
 class Empleado(Persona):

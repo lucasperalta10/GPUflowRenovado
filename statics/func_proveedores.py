@@ -1,21 +1,20 @@
 from conexion import get_connection_pool
-from models.proveedor import Proveedor
-from repositories.proveedor_repository import ProveedorRepository
+from src.services.inventario_service import ProveedorService
 
 
 def proveedores(pool):
-    return ProveedorRepository(pool).obtener_todos_df()
+    return ProveedorService().listar()
 
 
 def añadir_proveedor(pool, nombre, direccion, email):
-    nuevo = Proveedor(nombre=nombre, direccion=direccion, email=email)
-    return ProveedorRepository(pool).crear(nuevo)
+    return ProveedorService().crear_proveedor(nombre=nombre, direccion=direccion, email=email)
 
 
 def actualizar_proveedor(pool, id_proveedor, nombre, direccion, email):
-    editado = Proveedor(id_proveedor=id_proveedor, nombre=nombre, direccion=direccion, email=email)
-    return ProveedorRepository(pool).actualizar(editado)
+    return ProveedorService().actualizar_proveedor(
+        id_proveedor=id_proveedor, nombre=nombre, direccion=direccion, email=email
+    )
 
 
 def eliminar_proveedor(pool, id_proveedor):
-    return ProveedorRepository(pool).eliminar(id_proveedor)
+    return ProveedorService().eliminar_proveedor(id_proveedor)

@@ -1,5 +1,5 @@
 import streamlit as st
-from core.database import DatabaseConnection
+from src.core.database import DatabaseConnection
 
 
 @st.cache_resource

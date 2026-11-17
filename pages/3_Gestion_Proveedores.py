@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
-from models.proveedor import Proveedor
-from repositories.proveedor_repository import ProveedorRepository
+from src.services.inventario_service import ProveedorService
 
 st.set_page_config(
     page_title="Gestión de Proveedores",
@@ -9,13 +8,10 @@ st.set_page_config(
     layout="wide"
 )
 
-proveedor_repo = ProveedorRepository()
-if not proveedor_repo.pool:
-    st.error("Error de conexión a la base de datos.")
-    st.stop()
+proveedor_service = ProveedorService()
 
 try:
-    df_proveedores = proveedor_repo.obtener_todos_df()
+    df_proveedores = proveedor_service.listar()
 except Exception as e:
     st.error(f"No se pudieron cargar los proveedores: {e}")
     df_proveedores = pd.DataFrame(columns=["id_proveedor", "Nombre"])
@@ -47,7 +43,7 @@ with tab1:
     if df_proveedores.empty:
         st.info("No hay proveedores registrados.")
     else:
-        full_suppliers_df = proveedor_repo.obtener_todos_completos_df()
+        full_suppliers_df = proveedor_service.listar_completos()
         if not full_suppliers_df.empty:
             st.dataframe(full_suppliers_df, use_container_width=True)
 
@@ -63,19 +59,15 @@ with tab2:
         submitted = st.form_submit_button("Guardar Proveedor")
 
     if submitted:
-        nuevo_proveedor = Proveedor(
+        success, message = proveedor_service.crear_proveedor(
             nombre=nombre_prov,
             direccion=direccion_prov,
             email=email_prov,
         )
-        if not nuevo_proveedor.tiene_datos_validos():
-            st.warning("El campo 'Nombre' es obligatorio.")
+        if success:
+            st.success(message)
         else:
-            success, message = proveedor_repo.crear(nuevo_proveedor)
-            if success:
-                st.success(message)
-            else:
-                st.error(message)
+            st.error(message)
 
 # PESTAÑA 3: Editar Proveedor
 with tab3:
@@ -91,9 +83,9 @@ with tab3:
 
     if selected_supplier_str and selected_supplier_str in supplier_dict:
         proveedor_actual = supplier_dict[selected_supplier_str]
-        id_proveedor = proveedor_actual["id_proveedor"]
+        id_proveedor = int(proveedor_actual["id_proveedor"])
 
-        prov_obj = proveedor_repo.obtener_por_id(id_proveedor)
+        prov_obj = proveedor_service.obtener_por_id(id_proveedor)
         if prov_obj:
             with st.form("edit_supplier_form"):
                 st.markdown(f"**Editando ID: {id_proveedor}**")
@@ -106,20 +98,16 @@ with tab3:
                 submitted_edit = st.form_submit_button("Guardar Cambios")
 
                 if submitted_edit:
-                    proveedor_editado = Proveedor(
+                    success, message = proveedor_service.actualizar_proveedor(
                         id_proveedor=id_proveedor,
                         nombre=nombre_edit,
                         direccion=direccion_edit,
                         email=email_edit,
                     )
-                    if not proveedor_editado.tiene_datos_validos():
-                        st.warning("El campo 'Nombre' es obligatorio.")
+                    if success:
+                        st.success(message)
                     else:
-                        success, message = proveedor_repo.actualizar(proveedor_editado)
-                        if success:
-                            st.success(message)
-                        else:
-                            st.error(message)
+                        st.error(message)
 
 # PESTAÑA 4: Eliminar Proveedor
 with tab4:
@@ -140,9 +128,9 @@ with tab4:
         )
 
         if st.button("Eliminar Proveedor Permanentemente", disabled=(not confirmacion)):
-            id_para_borrar = supplier_dict[selected_supplier_to_delete_str]["id_proveedor"]
+            id_para_borrar = int(supplier_dict[selected_supplier_to_delete_str]["id_proveedor"])
 
-            success, message = proveedor_repo.eliminar(id_para_borrar)
+            success, message = proveedor_service.eliminar_proveedor(id_para_borrar)
 
             if success:
                 st.success(message)

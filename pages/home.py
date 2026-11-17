@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from repositories.producto_repository import ProductoRepository
+from src.services.inventario_service import ProductoService
 
 st.set_page_config(
     page_title="Almacén de GPUs",
@@ -8,13 +8,13 @@ st.set_page_config(
     layout="wide"
 )
 
-producto_repo = ProductoRepository()
+producto_service = ProductoService()
 
-if producto_repo.pool:
-    df_productos = producto_repo.obtener_todos_df()
-    df_stock_bajo = producto_repo.obtener_stock_bajo_df(umbral=10)
-else:
-    st.error("No se pudo conectar a la base de datos.")
+try:
+    df_productos = producto_service.listar()
+    df_stock_bajo = producto_service.listar_stock_bajo(umbral=10)
+except Exception as exc:
+    st.error(f"No se pudo conectar a la base de datos: {exc}")
     df_productos = pd.DataFrame()
     df_stock_bajo = pd.DataFrame()
 

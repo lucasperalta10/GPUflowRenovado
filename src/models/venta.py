@@ -1,6 +1,6 @@
 from typing import Optional
 from datetime import datetime
-from models.base import EntidadBase
+from src.models.base import EntidadBase
 
 
 class ItemVenta(EntidadBase):

@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
-from models.empleado import Empleado
-from repositories.empleado_repository import EmpleadoRepository
+from src.services.inventario_service import EmpleadoService
 
 st.set_page_config(
     page_title="Gestión de Empleados",
@@ -9,16 +8,13 @@ st.set_page_config(
     layout="wide"
 )
 
-empleado_repo = EmpleadoRepository()
-if not empleado_repo.pool:
-    st.error("Error de conexión a la base de datos.")
-    st.stop()
+empleado_service = EmpleadoService()
 
 st.title("👤 Gestión de Empleados")
 st.badge("Versión BETA 5", color="yellow", icon="⚠️")
 
 try:
-    df_empleados = empleado_repo.obtener_todos_df()
+    df_empleados = empleado_service.listar()
 except Exception:
     st.error("No se pudieron cargar los empleados.")
     df_empleados = pd.DataFrame(columns=["ID", "Nombre", "Apellido", "Cargo"])
@@ -79,20 +75,15 @@ with tab2:
         submitted = st.form_submit_button("Guardar Empleado")
 
     if submitted:
-        nuevo_empleado = Empleado(
+        success, message = empleado_service.crear_empleado(
             nombre=nombre_emp,
             apellido=apellido_emp,
             cargo=cargo_emp,
         )
-        if not nuevo_empleado.tiene_datos_validos():
-            st.warning("Por favor, complete los campos Nombre y Apellido.")
+        if success:
+            st.success(message)
         else:
-            success, message = empleado_repo.crear(nuevo_empleado)
-
-            if success:
-                st.success(message)
-            else:
-                st.error(message)
+            st.error(message)
 
 # PESTAÑA 3: Editar Empleado
 with tab3:
@@ -108,7 +99,7 @@ with tab3:
 
     if selected_employee_str and selected_employee_str in employee_dict:
         empleado_actual = employee_dict[selected_employee_str]
-        id_empleado = empleado_actual["ID"]
+        id_empleado = int(empleado_actual["ID"])
 
         cargo_actual = empleado_actual["Cargo"] if empleado_actual["Cargo"] else "(Ninguno)"
         try:
@@ -132,17 +123,13 @@ with tab3:
             submitted_edit = st.form_submit_button("Guardar Cambios")
 
             if submitted_edit:
-                empleado_editado = Empleado(
+                success, message = empleado_service.actualizar_empleado(
                     id_empleado=id_empleado,
                     nombre=nombre_edit,
                     apellido=apellido_edit,
                     cargo=cargo_edit,
                 )
-                if not empleado_editado.tiene_datos_validos():
-                    st.warning("Los campos Nombre y Apellido son obligatorios.")
+                if success:
+                    st.success(message)
                 else:
-                    success, message = empleado_repo.actualizar(empleado_editado)
-                    if success:
-                        st.success(message)
-                    else:
-                        st.error(message)
+                    st.error(message)

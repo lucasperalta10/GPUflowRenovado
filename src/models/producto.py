@@ -1,5 +1,5 @@
 from typing import Optional
-from models.base import EntidadBase
+from src.models.base import EntidadBase
 
 
 class Producto(EntidadBase):

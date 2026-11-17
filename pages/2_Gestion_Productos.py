@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
-from models.producto import Producto
-from repositories.producto_repository import ProductoRepository
-from repositories.proveedor_repository import ProveedorRepository
+from src.services.inventario_service import ProductoService, ProveedorService
 
 st.set_page_config(
     page_title="Gestión de Productos",
@@ -10,19 +8,15 @@ st.set_page_config(
     layout="wide"
 )
 
-producto_repo = ProductoRepository()
-proveedor_repo = ProveedorRepository()
-
-if not producto_repo.pool:
-    st.error("Error de conexión a la base de datos.")
-    st.stop()
+producto_service = ProductoService()
+proveedor_service = ProveedorService()
 
 st.title("📦 Gestión de Productos")
 st.badge("Versión BETA 5", color="yellow", icon="⚠️")
 
 try:
-    df_proveedores = proveedor_repo.obtener_todos_df()
-    df_productos_full = producto_repo.obtener_todos_df()
+    df_proveedores = proveedor_service.listar()
+    df_productos_full = producto_service.listar()
 except Exception as e:
     st.error(f"No se pudieron cargar los datos: {e}")
     st.stop()
@@ -72,7 +66,7 @@ with tab1:
         key="edit_select"
     )
 
-    if selected_product_str:
+    if selected_product_str and selected_product_str in product_dict:
         id_producto_a_editar = product_dict[selected_product_str]
         producto_actual = df_productos_editable.loc[id_producto_a_editar]
 
@@ -86,9 +80,9 @@ with tab1:
         st.subheader(f"Editando: {producto_actual['Nombre']}")
         with st.form("edit_product_form"):
             nombre = st.text_input("Nombre Descriptivo", value=producto_actual["Nombre"])
-            marca = st.text_input("Marca", value=producto_actual["Marca"])
-            modelo = st.text_input("Modelo", value=producto_actual["Modelo"])
-            vram = st.text_input("Memoria VRAM", value=producto_actual["VRAM"])
+            marca = st.text_input("Marca", value=producto_actual["Marca"] or "")
+            modelo = st.text_input("Modelo", value=producto_actual["Modelo"] or "")
+            vram = st.text_input("Memoria VRAM", value=producto_actual["VRAM"] or "")
 
             col1, col2 = st.columns(2)
             with col1:
@@ -110,13 +104,13 @@ with tab1:
 
             if submitted:
                 if selected_supplier_name in supplier_dict:
-                    id_proveedor_seleccionado = supplier_dict[selected_supplier_name]
+                    id_proveedor_seleccionado = int(supplier_dict[selected_supplier_name])
                 else:
                     st.error("Proveedor no válido seleccionado.")
                     st.stop()
 
-                producto_editado = Producto(
-                    id_producto=id_producto_a_editar,
+                success, message = producto_service.actualizar_producto(
+                    id_producto=int(id_producto_a_editar),
                     nombre=nombre,
                     marca=marca,
                     modelo=modelo,
@@ -126,13 +120,11 @@ with tab1:
                     id_proveedor=id_proveedor_seleccionado,
                 )
 
-                success = producto_repo.actualizar(producto_editado)
-
                 if success:
-                    st.success("¡Producto actualizado con éxito!")
+                    st.success(message)
                     st.info("Refresca la página para ver los cambios.")
                 else:
-                    st.error("Error al actualizar el producto.")
+                    st.error(message)
 
 # PESTAÑA 2: AÑADIR PRODUCTO
 with tab2:
@@ -162,31 +154,24 @@ with tab2:
         submitted_new = st.form_submit_button("Añadir Producto al Inventario")
 
     if submitted_new:
-        if not nombre_new or not marca_new or not modelo_new or not selected_supplier_name_new:
+        if not nombre_new or not marca_new or not modelo_new or selected_supplier_name_new not in supplier_dict:
             st.warning("Por favor, rellene todos los campos obligatorios.")
         else:
-            try:
-                id_proveedor_seleccionado_new = supplier_dict[selected_supplier_name_new]
+            id_proveedor_seleccionado_new = int(supplier_dict[selected_supplier_name_new])
+            success_new, message_new = producto_service.crear_producto(
+                nombre=nombre_new,
+                marca=marca_new,
+                modelo=modelo_new,
+                vram=vram_new,
+                precio=precio_new,
+                stock=stock_new,
+                id_proveedor=id_proveedor_seleccionado_new,
+            )
 
-                nuevo_producto = Producto(
-                    nombre=nombre_new,
-                    marca=marca_new,
-                    modelo=modelo_new,
-                    vram=vram_new,
-                    precio=precio_new,
-                    stock=stock_new,
-                    id_proveedor=id_proveedor_seleccionado_new,
-                )
-
-                success_new = producto_repo.crear(nuevo_producto)
-
-                if success_new:
-                    st.success(f"¡Producto '{nuevo_producto.nombre}' añadido con éxito!")
-                else:
-                    st.error("Hubo un error al guardar el producto.")
-
-            except Exception as e:
-                st.error(f"Error inesperado: {e}")
+            if success_new:
+                st.success(message_new)
+            else:
+                st.error(message_new)
 
 # PESTAÑA 3: ELIMINAR PRODUCTO
 with tab3:
@@ -201,15 +186,15 @@ with tab3:
         key="delete_select"
     )
 
-    if selected_product_to_delete_str:
+    if selected_product_to_delete_str and selected_product_to_delete_str in product_dict:
         confirmacion = st.checkbox(
             f"Marque esta casilla para confirmar que desea eliminar: **{selected_product_to_delete_str}**."
         )
 
         if st.button("Eliminar Producto Permanentemente", disabled=(not confirmacion)):
-            id_para_borrar = product_dict[selected_product_to_delete_str]
+            id_para_borrar = int(product_dict[selected_product_to_delete_str])
 
-            success_delete, mensaje_eliminar = producto_repo.eliminar(id_para_borrar)
+            success_delete, mensaje_eliminar = producto_service.eliminar_producto(id_para_borrar)
 
             if success_delete:
                 st.success(mensaje_eliminar)
